@@ -1,22 +1,23 @@
-import { list } from './data.js'
-import 'regenerator-runtime/runtime'
+import { list } from "./data.js";
+import "regenerator-runtime/runtime";
 import jQuery from "jquery";
-import Viva from 'vivagraphjs'
-// import 'regenerator-runtime/runtime'
+import Viva from "vivagraphjs";
+
 const $ = jQuery.noConflict();
 
-$(document).ready(function() {
+$(document).ready(function () {
+  // Get query string from URL
+  // Query string is used to fetch data
+  let params = new URL(document.location).searchParams;
+  let queryString = params.get("query");
 
-let params = new URL(document.location).searchParams;
-let queryString = params.get("query");
-
-  
   var graph = Viva.Graph.graph();
 
-
+  // Get search input and result area
   var searchEle = document.querySelector(".search"),
     result = document.querySelector(".result");
 
+  // Perform search using Fuse
   function doSearch() {
     var resultJSON = fuse.search(searchEle.value);
     let r = JSON.stringify(resultJSON, null, 3);
@@ -45,21 +46,11 @@ let queryString = params.get("query");
   };
   var fuse = new Fuse(list, options);
 
+  // Search using Fuse
   searchEle.addEventListener("input", doSearch);
   doSearch();
 
-  let searchInput = document.querySelector(".search");
-  let searchResult = document.querySelector("#search-result");
-  let searchBox = document.querySelector("#search");
-  searchInput.addEventListener("focus", () => {
-    //searchResult.style.position = "absolute"
-  });
-
-  searchInput.addEventListener("blur", () => {
-    //searchInput.value = ""
-    //searchResult.style.position = "relative"
-  });
-
+  // Checkbox to enable or disable subgraphs
   let enableSubgraph = document.getElementById(`subgraph`);
 
   buildGraph();
@@ -70,18 +61,24 @@ let queryString = params.get("query");
 
     async function getWikiLinks(qString) {
 
+      // While waiting for data, show loading text
       let loading = document.getElementById("loading");
       loading.innerHTML = "fetching data...";
+
       var pageName = qString;
+
+      // Use Wikipedia API to fetch data
       var url = `https://en.wikipedia.org/w/api.php?format=json&origin=*&action=parse&prop=links&page=${pageName}&redirects`;
       let matches = [];
+
+      // Exclude links containing certain strings
       let toExclude = new RegExp(`${pageName}`, "i");
       var toExclude1 =
         /(proof|fiction|disambiguation|introduction|book|theorems|prove|proving|metatheorem|math|template|talk|theory\))/gi;
       const linkData = await fetch(url).then((response) => response.json());
 
       for (var i in linkData.parse.links) {
-        // Match values containing a string, space plus the word "theorem"
+        // Match values containing a specific strings
         let link = linkData.parse.links[i]["*"];
         var re = /([\w\s]+(theorem|lemma|correspondence))/gi;
         if (!toExclude.test(link) && !toExclude1.test(link) && re.test(link)) {
@@ -101,8 +98,10 @@ let queryString = params.get("query");
             response.json()
           );
           for (var k in linkData1.parse.links) {
-            // Match values containing a string, space plus the word "theorem"
+            // Match values containing a specific strings
             let link1 = linkData1.parse.links[k]["*"];
+
+            // Exclude words containing certain strings
             var re1 =
               /([\w\s]+(theorem|algorithm|lemma|inequality|conjecture|axiom|corollary|correspondence))/gi;
             var toExclude2 =
@@ -123,13 +122,9 @@ let queryString = params.get("query");
         allResults.push(matches);
       }
 
-
       // Construct the graph
-
       let parentText = pageName;
-
       if (allResults.length > 0) {
-        
         graph.addNode("parent", {
           text: parentText,
           cn: "red",
@@ -141,19 +136,18 @@ let queryString = params.get("query");
             // Set the first array items as the main branches
             graph.addNode(branch[0], {
               text: branch[0],
-              cn: "red",
-              strokeClass: "red-stroke",
+              cn: "red", 
+              strokeClass: "red-stroke" , // Give main nodes red text and stroke
             });
             graph.addLink("parent", branch[0], { cn: "red-stroke" });
-  
+
             // generate sub branches
             for (let sub = 1; sub < branch.length; sub++) {
               graph.addNode(branch[sub], { text: branch[sub] });
               graph.addLink(branch[0], branch[sub], { cn: "gray" });
             }
           }
-        }
-        else {
+        } else {
           let branch = allResults[0];
           for (let item in branch) {
             graph.addNode(branch[item], {
@@ -164,7 +158,7 @@ let queryString = params.get("query");
             graph.addLink("parent", branch[item], { cn: "red-stroke" });
           }
         }
-        
+        // Remove loading text after graphs are rendered
         loading.innerHTML = "";
       } else {
         let container = document.getElementById("graphDiv");
@@ -181,13 +175,13 @@ let queryString = params.get("query");
             "Visualizations of theorem relationships using graphs.";
         }
         container.appendChild(el);
-        //document.querySelector('svg').remove();
+
       }
 
       // Canvas only used to calculate text width
       let canvas = document.createElement("canvas");
       let ctx = canvas.getContext("2d");
-      // Give text a size of 40px and assign it the selected font
+      // Give text a size of 20px and assign it the selected font
       let textSize = `20px`;
       ctx.font = `${textSize}`;
 
@@ -240,6 +234,7 @@ let queryString = params.get("query");
         });
 
       let sLength = 600;
+      // Give longer spring length to graphs with more branches
       if (allResults.length > 4) {
         sLength = 900;
       }
@@ -256,11 +251,6 @@ let queryString = params.get("query");
         layout: layout,
       });
       renderer.run();
-
-
     }
-
   }
-
-
 });
