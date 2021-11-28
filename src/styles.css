@@ -9,7 +9,9 @@ body {
   margin: 0;
 }
 
-
+.search-container {
+  position: relative;
+}
 #search {
   width: 330px;
   position: relative;
@@ -37,6 +39,7 @@ body {
   left: 20px;
   width: 350px;
   box-shadow: 1px 1px 5px #999;
+  z-index: 3;
 }
 
 form {
@@ -87,9 +90,11 @@ span {
 }
 
 .gh {
-  float: right;
+  position: absolute;
+  bottom:0;
+  right: 0;
+  margin: 20px;
 }
-
 .gh a {
   padding: 20px;
 }
@@ -141,8 +146,4 @@ svg text {
   text-align: center;
 }
 
-@media only screen and (max-width: 540px) {
-  .gh {
-    float: none;
-  }
-}
+
