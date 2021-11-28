@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Visualizations of theorem relationships using graphs</title>
+    <link href="src/styles.css" rel="stylesheet" type="text/css" />
+    <script type="module" src="src/script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/3.2.0/fuse.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-W8GSQN5XSZ"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-W8GSQN5XSZ");
+    </script>
+
+  </head>
+  <body>
+    <div class="top">
+      <div class="gh">
+        <a href="https://github.com/enjeck/theorem-graphs" target="_blank">Source code</a>
+      </div>
+      <div>
+        <div class="search-container">
+          <div id="search">
+            <form>
+              <input
+                type="text"
+                id="query"
+                name="query"
+                class="search"
+                placeholder="Search for a theorem..."
+              />
+              <!-- <input type="submit" value="Go!" /> -->
+            </form>
+          </div>
+          <div class="result" id="search-result"></div>
+        </div>
+      </div>
+      <div id="loading"></div>
+      <div class="check">
+        <label for="subgraph"> Enable subgraphs</label>
+        <input type="checkbox" id="subgraph" name="subgraph" value="enable" checked>
+      </div>
+    </div>
+    <div id="graphDiv"></div>
+  </body>
+</html>
