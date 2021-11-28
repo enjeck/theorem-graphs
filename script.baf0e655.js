@@ -20903,17 +20903,19 @@ function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) return _arrayLikeToAr
 
 function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 
-// import 'regenerator-runtime/runtime'
 var $ = _jquery.default.noConflict();
 
 $(document).ready(function () {
+  // Get query string from URL
+  // Query string is used to fetch data
   var params = new URL(document.location).searchParams;
   var queryString = params.get("query");
 
-  var graph = _vivagraphjs.default.Graph.graph();
+  var graph = _vivagraphjs.default.Graph.graph(); // Get search input and result area
+
 
   var searchEle = document.querySelector(".search"),
-      result = document.querySelector(".result");
+      result = document.querySelector(".result"); // Perform search using Fuse
 
   function doSearch() {
     var resultJSON = fuse.search(searchEle.value);
@@ -20941,17 +20943,11 @@ $(document).ready(function () {
     maxPatternLength: 32,
     minMatchCharLength: 1
   };
-  var fuse = new Fuse(_data.list, options);
+  var fuse = new Fuse(_data.list, options); // Search using Fuse
+
   searchEle.addEventListener("input", doSearch);
-  doSearch();
-  var searchInput = document.querySelector(".search");
-  var searchResult = document.querySelector("#search-result");
-  var searchBox = document.querySelector("#search");
-  searchInput.addEventListener("focus", function () {//searchResult.style.position = "absolute"
-  });
-  searchInput.addEventListener("blur", function () {//searchInput.value = ""
-    //searchResult.style.position = "relative"
-  });
+  doSearch(); // Checkbox to enable or disable subgraphs
+
   var enableSubgraph = document.getElementById("subgraph");
   buildGraph();
 
@@ -20971,11 +20967,14 @@ $(document).ready(function () {
           while (1) {
             switch (_context.prev = _context.next) {
               case 0:
+                // While waiting for data, show loading text
                 loading = document.getElementById("loading");
                 loading.innerHTML = "fetching data...";
-                pageName = qString;
+                pageName = qString; // Use Wikipedia API to fetch data
+
                 url = "https://en.wikipedia.org/w/api.php?format=json&origin=*&action=parse&prop=links&page=".concat(pageName, "&redirects");
-                matches = [];
+                matches = []; // Exclude links containing certain strings
+
                 toExclude = new RegExp("".concat(pageName), "i");
                 toExclude1 = /(proof|fiction|disambiguation|introduction|book|theorems|prove|proving|metatheorem|math|template|talk|theory\))/gi;
                 _context.next = 9;
@@ -20987,7 +20986,7 @@ $(document).ready(function () {
                 linkData = _context.sent;
 
                 for (i in linkData.parse.links) {
-                  // Match values containing a string, space plus the word "theorem"
+                  // Match values containing a specific strings
                   link = linkData.parse.links[i]["*"];
                   re = /([\w\s]+(theorem|lemma|correspondence))/gi;
 
@@ -21026,8 +21025,9 @@ $(document).ready(function () {
                 linkData1 = _context.sent;
 
                 for (k in linkData1.parse.links) {
-                  // Match values containing a string, space plus the word "theorem"
-                  link1 = linkData1.parse.links[k]["*"];
+                  // Match values containing a specific strings
+                  link1 = linkData1.parse.links[k]["*"]; // Exclude words containing certain strings
+
                   re1 = /([\w\s]+(theorem|algorithm|lemma|inequality|conjecture|axiom|corollary|correspondence))/gi;
                   toExclude2 = /(proof|fiction|disambiguation|list|analysis of|method of|introduction|book|metatheorem|theorems|template|prove|proving|math|talk|theory\))/gi;
                   toExclude3 = new RegExp("".concat(pageName1, "|").concat(pageName), "i");
@@ -21066,7 +21066,8 @@ $(document).ready(function () {
                       graph.addNode(branch[0], {
                         text: branch[0],
                         cn: "red",
-                        strokeClass: "red-stroke"
+                        strokeClass: "red-stroke" // Give main nodes red text and stroke
+
                       });
                       graph.addLink("parent", branch[0], {
                         cn: "red-stroke"
@@ -21094,7 +21095,8 @@ $(document).ready(function () {
                         cn: "red-stroke"
                       });
                     }
-                  }
+                  } // Remove loading text after graphs are rendered
+
 
                   loading.innerHTML = "";
                 } else {
@@ -21110,12 +21112,12 @@ $(document).ready(function () {
                     el.innerText = "Visualizations of theorem relationships using graphs.";
                   }
 
-                  container.appendChild(el); //document.querySelector('svg').remove();
+                  container.appendChild(el);
                 } // Canvas only used to calculate text width
 
 
                 canvas = document.createElement("canvas");
-                ctx = canvas.getContext("2d"); // Give text a size of 40px and assign it the selected font
+                ctx = canvas.getContext("2d"); // Give text a size of 20px and assign it the selected font
 
                 textSize = "20px";
                 ctx.font = "".concat(textSize); // Set custom nodes appearance
@@ -21146,7 +21148,7 @@ $(document).ready(function () {
 
                   linkUI.attr("d", data);
                 });
-                sLength = 600;
+                sLength = 600; // Give longer spring length to graphs with more branches
 
                 if (allResults.length > 4) {
                   sLength = 900;
@@ -21204,7 +21206,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "41287" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "32917" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
