@@ -17,6 +17,15 @@ class TheoremGraphApp {
     this.navigationHistory = [];
     this.currentHistoryIndex = -1;
     this.renderer = null;
+    
+    // Cache for API responses
+    this.cache = {
+      wikiLinks: new Map(), // Stores fetched Wikipedia links
+      relationships: new Map(), // Stores computed relationships
+    };
+    
+    // Load cache from localStorage
+    this.loadCacheFromStorage();
   }
 
   /**
@@ -38,6 +47,71 @@ class TheoremGraphApp {
   }
 
   /**
+   * Load cache from localStorage
+   */
+  loadCacheFromStorage() {
+    try {
+      const stored = localStorage.getItem('theoremGraphCache');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convert arrays back to Maps
+        this.cache.wikiLinks = new Map(parsed.wikiLinks || []);
+        this.cache.relationships = new Map(parsed.relationships || []);
+        console.log(`Loaded cache: ${this.cache.wikiLinks.size} pages`);
+        this.updateCacheInfo();
+      }
+    } catch (error) {
+      console.warn('Failed to load cache from storage:', error);
+    }
+  }
+
+  /**
+   * Save cache to localStorage
+   */
+  saveCacheToStorage() {
+    try {
+      const toStore = {
+        wikiLinks: Array.from(this.cache.wikiLinks.entries()),
+        relationships: Array.from(this.cache.relationships.entries()),
+        timestamp: Date.now(),
+      };
+      localStorage.setItem('theoremGraphCache', JSON.stringify(toStore));
+      this.updateCacheInfo();
+    } catch (error) {
+      console.warn('Failed to save cache to storage:', error);
+    }
+  }
+
+  /**
+   * Update cache info display
+   */
+  updateCacheInfo() {
+    if (this.elements.cacheInfo) {
+      const count = this.cache.wikiLinks.size;
+      this.elements.cacheInfo.innerHTML = count > 0 
+        ? `📦 ${count} cached` 
+        : '';
+    }
+  }
+
+  /**
+   * Get cache key for a theorem
+   */
+  getCacheKey(pageName, includeExtended = false) {
+    return `${pageName}:${includeExtended}`;
+  }
+
+  /**
+   * Clear cache (can be called from console: app.clearCache())
+   */
+  clearCache() {
+    this.cache.wikiLinks.clear();
+    this.cache.relationships.clear();
+    localStorage.removeItem('theoremGraphCache');
+    console.log('Cache cleared');
+  }
+
+  /**
    * Cache DOM elements for reuse
    */
   cacheElements() {
@@ -50,6 +124,7 @@ class TheoremGraphApp {
       breadcrumb: document.getElementById("breadcrumb"),
       backBtn: document.getElementById("back-btn"),
       forwardBtn: document.getElementById("forward-btn"),
+      cacheInfo: document.getElementById("cache-info"),
     };
   }
 
@@ -298,6 +373,14 @@ class TheoremGraphApp {
    * Fetch links from a Wikipedia page
    */
   async fetchPageLinks(pageName, includeExtended = false) {
+    // Check cache first
+    const cacheKey = this.getCacheKey(pageName, includeExtended);
+    if (this.cache.wikiLinks.has(cacheKey)) {
+      console.log(`Cache hit: ${pageName}`);
+      return this.cache.wikiLinks.get(cacheKey);
+    }
+
+    console.log(`Fetching: ${pageName}`);
     const url = `${CONFIG.WIKI_API_BASE}?${CONFIG.WIKI_API_PARAMS}&page=${pageName}`;
     
     try {
@@ -312,7 +395,13 @@ class TheoremGraphApp {
         return [];
       }
 
-      return this.filterLinks(data.parse.links, pageName, includeExtended);
+      const filteredLinks = this.filterLinks(data.parse.links, pageName, includeExtended);
+      
+      // Store in cache
+      this.cache.wikiLinks.set(cacheKey, filteredLinks);
+      this.saveCacheToStorage();
+      
+      return filteredLinks;
     } catch (error) {
       console.error(`Error fetching links for ${pageName}:`, error);
       return [];
@@ -567,4 +656,8 @@ class TheoremGraphApp {
 document.addEventListener("DOMContentLoaded", () => {
   const app = new TheoremGraphApp();
   app.init();
+  
+  // Expose app globally for console access (e.g., app.clearCache())
+  window.theoremApp = app;
+  console.log('Theorem Graph App loaded. Use theoremApp.clearCache() to clear cache.');
 });

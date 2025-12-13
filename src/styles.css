@@ -194,6 +194,16 @@ input[type="checkbox"] {
   min-width: 150px;
 }
 
+.cache-info {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--color-secondary);
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .check {
   padding: 8px 20px;
   min-width: 180px;
