@@ -572,20 +572,48 @@ class TheoremGraphApp {
           .attr("class", `dataText ${node.data.cn} ${isParent ? 'parent-text' : ''}`)
           .text(node.data.text);
 
-        // Add click handler for navigation
+        // Add drag/click detection for navigation
         // Skip the parent node (it's already the current focus)
         if (node.id !== "parent") {
-          g.addEventListener("click", async () => {
-            await this.navigateToTheorem(node.data.text);
+          let mouseDownPos = null;
+          let isDragging = false;
+          
+          g.addEventListener("mousedown", (e) => {
+            mouseDownPos = { x: e.clientX, y: e.clientY };
+            isDragging = false;
+          });
+          
+          g.addEventListener("mousemove", (e) => {
+            if (mouseDownPos) {
+              const dx = e.clientX - mouseDownPos.x;
+              const dy = e.clientY - mouseDownPos.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              
+              // If moved more than 5 pixels, it's a drag
+              if (distance > 5) {
+                isDragging = true;
+              }
+            }
+          });
+          
+          g.addEventListener("mouseup", async (e) => {
+            // Only navigate if it was a click (not a drag)
+            if (mouseDownPos && !isDragging) {
+              await this.navigateToTheorem(node.data.text);
+            }
+            mouseDownPos = null;
+            isDragging = false;
           });
           
           // Add visual feedback on hover
           g.addEventListener("mouseenter", () => {
             rect.attr("class", `bbox ${node.data.strokeClass} hovered`);
+            g.style.cursor = "pointer";
           });
           
           g.addEventListener("mouseleave", () => {
             rect.attr("class", `bbox ${node.data.strokeClass}`);
+            g.style.cursor = "default";
           });
         }
 
