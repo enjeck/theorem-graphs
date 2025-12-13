@@ -3,8 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Visualizations of theorem relationships using graphs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Interactive visualization of mathematical theorem relationships using graph theory" />
+    <meta name="keywords" content="mathematics, theorems, graph visualization, data visualization" />
+    <title>Theorem Relationships Graph Visualization</title>
     <link href="src/styles.css" rel="stylesheet" type="text/css" />
     <script type="module" src="src/script.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/3.2.0/fuse.js"></script>
@@ -26,33 +28,38 @@
 
   </head>
   <body>
-    <div class="top">
+    <header class="top">
       <div>
-        <div class="search-container">
+        <nav class="search-container" aria-label="Theorem search">
           <div id="search">
-            <form>
+            <form role="search" aria-label="Search theorems">
+              <label for="query" class="visually-hidden">Search for a theorem</label>
               <input
-                type="text"
+                type="search"
                 id="query"
                 name="query"
                 class="search"
                 placeholder="Search for a theorem..."
+                autocomplete="off"
+                aria-label="Search input"
               />
-              <!-- <input type="submit" value="Go!" /> -->
             </form>
           </div>
-          <div class="result" id="search-result"></div>
+          <ul class="result" id="search-result" role="listbox" aria-label="Search results"></ul>
+        </nav>
+        <div id="loading" role="status" aria-live="polite"></div>
+        <div class="check">
+          <label for="subgraph">
+            <input type="checkbox" id="subgraph" name="subgraph" value="enable" checked aria-describedby="subgraph-desc" />
+            Enable subgraphs
+          </label>
+          <span id="subgraph-desc" class="visually-hidden">When enabled, shows nested relationships between theorems</span>
         </div>
       </div>
-      <div id="loading"></div>
-      <div class="check">
-        <label for="subgraph"> Enable subgraphs</label>
-        <input type="checkbox" id="subgraph" name="subgraph" value="enable" checked>
-      </div>
-    </div>
-    <div id="graphDiv"></div>
-    <div class="gh">
-      <a href="https://github.com/enjeck/theorem-graphs" target="_blank">Source code</a>
-    </div>
+    </header>
+    <main id="graphDiv" role="main" aria-label="Theorem relationship graph"></main>
+    <footer class="gh">
+      <a href="https://github.com/enjeck/theorem-graphs" target="_blank" rel="noopener noreferrer" aria-label="View source code on GitHub">Source code</a>
+    </footer>
   </body>
 </html>

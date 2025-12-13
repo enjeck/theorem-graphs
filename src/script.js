@@ -1,256 +1,403 @@
 import { list } from "./data.js";
-import "regenerator-runtime/runtime";
-import jQuery from "jquery";
+import { CONFIG } from "./config.js";
 import Viva from "vivagraphjs";
 
-const $ = jQuery.noConflict();
-
-$(document).ready(function () {
-  // Get query string from URL
-  // Query string is used to fetch data
-  let params = new URL(document.location).searchParams;
-  let queryString = params.get("query");
-
-  var graph = Viva.Graph.graph();
-
-  // Get search input and result area
-  var searchEle = document.querySelector(".search"),
-    result = document.querySelector(".result");
-
-  // Perform search using Fuse
-  function doSearch() {
-    var resultJSON = fuse.search(searchEle.value);
-    let r = JSON.stringify(resultJSON, null, 3);
-    r = [...resultJSON];
-    let val = ``;
-    for (let i in r) {
-      // Replace spaces with plus for query string
-      let qs = list[r[i]];
-      qs = qs.split(" ").join("+");
-      val += `<li class="search-item"> <a href="?query=${qs}">${
-        list[r[i]]
-      }</a></li>`;
-    }
-    result.innerHTML = val;
+/**
+ * Main application class for theorem graph visualization
+ */
+class TheoremGraphApp {
+  constructor() {
+    this.graph = Viva.Graph.graph();
+    this.fuse = null;
+    this.elements = {};
+    this.queryString = null;
+    this.canvas = document.createElement("canvas");
+    this.ctx = this.canvas.getContext("2d");
+    this.ctx.font = `${CONFIG.TEXT_SIZE}px`;
   }
 
-  var options = {
-    shouldSort: true,
-    matchAllTokens: true,
-    findAllMatches: true,
-    threshold: 0.4,
-    location: 0,
-    distance: 100,
-    maxPatternLength: 32,
-    minMatchCharLength: 1,
-  };
-  var fuse = new Fuse(list, options);
+  /**
+   * Initialize the application
+   */
+  async init() {
+    this.cacheElements();
+    this.setupSearch();
+    this.setupSubgraphToggle();
+    this.queryString = this.getQueryFromURL();
+    await this.buildGraph();
+  }
 
-  // Search using Fuse
-  searchEle.addEventListener("input", doSearch);
-  doSearch();
+  /**
+   * Cache DOM elements for reuse
+   */
+  cacheElements() {
+    this.elements = {
+      search: document.querySelector(".search"),
+      result: document.querySelector(".result"),
+      loading: document.getElementById("loading"),
+      subgraphCheckbox: document.getElementById("subgraph"),
+      graphDiv: document.getElementById("graphDiv"),
+    };
+  }
 
-  // Checkbox to enable or disable subgraphs
-  let enableSubgraph = document.getElementById(`subgraph`);
+  /**
+   * Get query string from URL parameters
+   */
+  getQueryFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("query");
+  }
 
-  buildGraph();
+  /**
+   * Setup search functionality with Fuse.js
+   */
+  setupSearch() {
+    // Initialize Fuse for fuzzy search
+    this.fuse = new Fuse(list, CONFIG.FUSE_OPTIONS);
+    
+    // Bind search event
+    this.elements.search.addEventListener("input", () => this.performSearch());
+    this.performSearch();
+  }
 
-  function buildGraph() {
-    getWikiLinks(queryString);
-    console.log(queryString);
+  /**
+   * Setup subgraph checkbox toggle
+   */
+  setupSubgraphToggle() {
+    this.elements.subgraphCheckbox.addEventListener("change", async () => {
+      // Clear the existing graph
+      this.clearGraph();
+      
+      // Rebuild with new subgraph setting
+      await this.buildGraph();
+    });
+  }
 
-    async function getWikiLinks(qString) {
+  /**
+   * Clear the graph and container
+   */
+  clearGraph() {
+    // Clear the graph
+    this.graph.clear();
+    
+    // Clear the container
+    this.elements.graphDiv.innerHTML = "";
+    
+    // Recreate the graph instance
+    this.graph = Viva.Graph.graph();
+  }
 
-      // While waiting for data, show loading text
-      let loading = document.getElementById("loading");
-      loading.innerHTML = "fetching data...";
+  /**
+   * Perform search and display results
+   */
+  performSearch() {
+    const searchValue = this.elements.search.value;
+    const results = this.fuse.search(searchValue);
+    
+    const resultHTML = results
+      .map((index) => {
+        const theorem = list[index];
+        const queryString = theorem.replace(/\s+/g, "+");
+        return `<li class="search-item">
+          <a href="?query=${queryString}">${theorem}</a>
+        </li>`;
+      })
+      .join("");
+    
+    this.elements.result.innerHTML = resultHTML;
+  }
 
-      var pageName = qString;
-
-      // Use Wikipedia API to fetch data
-      var url = `https://en.wikipedia.org/w/api.php?format=json&origin=*&action=parse&prop=links&page=${pageName}&redirects`;
-      let matches = [];
-
-      // Exclude links containing certain strings
-      let toExclude = new RegExp(`${pageName}`, "i");
-      var toExclude1 =
-        /(proof|fiction|disambiguation|introduction|book|theorems|prove|proving|metatheorem|math|template|talk|theory\))/gi;
-      const linkData = await fetch(url).then((response) => response.json());
-
-      for (var i in linkData.parse.links) {
-        // Match values containing a specific strings
-        let link = linkData.parse.links[i]["*"];
-        var re = /([\w\s]+(theorem|lemma|correspondence))/gi;
-        if (!toExclude.test(link) && !toExclude1.test(link) && re.test(link)) {
-          matches.push(link);
-        }
-      }
-      let allResults = [];
-
-      if (enableSubgraph.checked == true) {
-        for (let j in matches) {
-          var pageName1 = `${matches[j]}`;
-          var url1 = `https://en.wikipedia.org/w/api.php?format=json&origin=*&action=parse&prop=links&page=${pageName1}&redirects`;
-          let related = [];
-          related.push(pageName1);
-          let toExclude1 = new RegExp(`${pageName1}`, "i");
-          const linkData1 = await fetch(url1).then((response) =>
-            response.json()
-          );
-          for (var k in linkData1.parse.links) {
-            // Match values containing a specific strings
-            let link1 = linkData1.parse.links[k]["*"];
-
-            // Exclude words containing certain strings
-            var re1 =
-              /([\w\s]+(theorem|algorithm|lemma|inequality|conjecture|axiom|corollary|correspondence))/gi;
-            var toExclude2 =
-              /(proof|fiction|disambiguation|list|analysis of|method of|introduction|book|metatheorem|theorems|template|prove|proving|math|talk|theory\))/gi;
-            var toExclude3 = new RegExp(`${pageName1}|${pageName}`, "i");
-            if (
-              re1.test(link1) &&
-              !toExclude1.test(link1) &&
-              !toExclude2.test(link1) &&
-              !toExclude3.test(link1)
-            ) {
-              related.push(link1);
-            }
-          }
-          allResults.push(related);
-        }
-      } else {
-        allResults.push(matches);
-      }
-
-      // Construct the graph
-      let parentText = pageName;
-      if (allResults.length > 0) {
-        graph.addNode("parent", {
-          text: parentText,
-          cn: "red",
-          strokeClass: "red-stroke",
-        });
-        if (enableSubgraph.checked == true) {
-          for (let item in allResults) {
-            let branch = allResults[item];
-            // Set the first array items as the main branches
-            graph.addNode(branch[0], {
-              text: branch[0],
-              cn: "red", 
-              strokeClass: "red-stroke" , // Give main nodes red text and stroke
-            });
-            graph.addLink("parent", branch[0], { cn: "red-stroke" });
-
-            // generate sub branches
-            for (let sub = 1; sub < branch.length; sub++) {
-              graph.addNode(branch[sub], { text: branch[sub] });
-              graph.addLink(branch[0], branch[sub], { cn: "gray" });
-            }
-          }
-        } else {
-          let branch = allResults[0];
-          for (let item in branch) {
-            graph.addNode(branch[item], {
-              text: branch[item],
-              cn: "red",
-              strokeClass: "red-stroke",
-            });
-            graph.addLink("parent", branch[item], { cn: "red-stroke" });
-          }
-        }
-        // Remove loading text after graphs are rendered
-        loading.innerHTML = "";
-      } else {
-        let container = document.getElementById("graphDiv");
-        let el = document.createElement("div");
-        el.setAttribute("class", "empty-container");
-        // Hide loading text
-        loading.innerHTML = "";
-
-        // Show different empty states based on query string
-        if (queryString) {
-          el.innerText = "No relationships found";
-        } else {
-          el.innerText =
-            "Visualizations of theorem relationships using graphs.";
-        }
-        container.appendChild(el);
-
-      }
-
-      // Canvas only used to calculate text width
-      let canvas = document.createElement("canvas");
-      let ctx = canvas.getContext("2d");
-      // Give text a size of 20px and assign it the selected font
-      let textSize = `20px`;
-      ctx.font = `${textSize}`;
-
-      // Set custom nodes appearance
-      var graphics = Viva.Graph.View.svgGraphics();
-      graphics
-        .node(function (node) {
-          let pos = layout.getNodePosition(node.id);
-          // Get width of the text
-          let text = ctx.measureText(`${node.data.text}`);
-          let textWidth = text.width;
-
-          let g = Viva.Graph.svg("g").attr("width", "auto").attr("height", 20);
-          g.append("rect")
-            .attr("width", textWidth * 2.2)
-            .attr("height", 40)
-            .attr("class", `bbox ${node.data.strokeClass}`)
-            .attr("y", -30)
-            .attr("x", -10);
-          g.append("text")
-            .attr("class", `dataText ${node.data.cn}`)
-            .text(node.data.text);
-
-          // The function is called every time renderer needs a ui to display node
-          return g;
-          //.link(node.data.url); // node.data holds custom object passed to graph.addNode();
-        })
-        .placeNode(function (nodeUI, pos) {
-          // Shift text to let links go to the center:
-          nodeUI.attr("transform", `translate(${pos.x}, ${pos.y})`);
-        });
-
-      let color;
-
-      graphics
-        .link(function (link) {
-          return Viva.Graph.svg("path")
-            .attr("stroke", "gray")
-            .attr("stroke-width", "3")
-            .attr("class", `${link.data.cn}`);
-        })
-        .placeLink(function (linkUI, fromPos, toPos) {
-          // linkUI - is the object returned from link() callback above.
-          var data =
-            "M" + fromPos.x + "," + fromPos.y + "L" + toPos.x + "," + toPos.y;
-
-          // 'Path data' (http://www.w3.org/TR/SVG/paths.html#DAttribute )
-          // is a common way of rendering paths in SVG:
-          linkUI.attr("d", data);
-        });
-
-      let sLength = 600;
-      // Give longer spring length to graphs with more branches
-      if (allResults.length > 4) {
-        sLength = 900;
-      }
-      var layout = Viva.Graph.Layout.forceDirected(graph, {
-        springLength: sLength,
-        springCoeff: 0.0008,
-        dragCoeff: 0.02,
-        gravity: -10.2,
-      });
-
-      var renderer = Viva.Graph.View.renderer(graph, {
-        graphics: graphics,
-        container: document.getElementById("graphDiv"),
-        layout: layout,
-      });
-      renderer.run();
+  /**
+   * Build the theorem relationship graph
+   */
+  async buildGraph() {
+    try {
+      await this.fetchAndRenderGraph();
+    } catch (error) {
+      console.error("Error building graph:", error);
+      this.showError(CONFIG.MESSAGES.ERROR_FETCH);
     }
   }
+
+  /**
+   * Fetch Wikipedia data and render the graph
+   */
+  async fetchAndRenderGraph() {
+    if (!this.queryString) {
+      this.showEmptyState(CONFIG.MESSAGES.EMPTY_SEARCH);
+      return;
+    }
+
+    this.showLoading(true);
+
+    try {
+      const relationships = await this.fetchWikiRelationships(this.queryString);
+      
+      if (relationships.length === 0) {
+        this.showEmptyState(CONFIG.MESSAGES.NO_RESULTS);
+        return;
+      }
+
+      this.renderGraph(relationships);
+    } finally {
+      this.showLoading(false);
+    }
+  }
+
+  /**
+   * Fetch theorem relationships from Wikipedia API
+   */
+  async fetchWikiRelationships(pageName) {
+    const mainLinks = await this.fetchPageLinks(pageName);
+    
+    if (!this.elements.subgraphCheckbox.checked) {
+      return [mainLinks];
+    }
+
+    // Fetch sub-relationships for each main link
+    const subRelationships = await Promise.all(
+      mainLinks.map((link) => this.fetchSubRelationships(link, pageName))
+    );
+
+    return subRelationships;
+  }
+
+  /**
+   * Fetch links from a Wikipedia page
+   */
+  async fetchPageLinks(pageName, includeExtended = false) {
+    const url = `${CONFIG.WIKI_API_BASE}?${CONFIG.WIKI_API_PARAMS}&page=${pageName}`;
+    
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.parse || !data.parse.links) {
+        return [];
+      }
+
+      return this.filterLinks(data.parse.links, pageName, includeExtended);
+    } catch (error) {
+      console.error(`Error fetching links for ${pageName}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Filter Wikipedia links based on relevance
+   */
+  filterLinks(links, excludePage, includeExtended = false) {
+    const matchRegex = includeExtended 
+      ? CONFIG.REGEX.EXTENDED_MATCH 
+      : CONFIG.REGEX.THEOREM_MATCH;
+    
+    const excludeRegex = includeExtended 
+      ? CONFIG.REGEX.EXCLUDE_EXTENDED 
+      : CONFIG.REGEX.EXCLUDE_COMMON;
+    
+    const excludePageRegex = new RegExp(excludePage, "i");
+
+    return links
+      .map((link) => link["*"])
+      .filter((linkText) => {
+        return (
+          matchRegex.test(linkText) &&
+          !excludePageRegex.test(linkText) &&
+          !excludeRegex.test(linkText)
+        );
+      });
+  }
+
+  /**
+   * Fetch sub-relationships for a given theorem
+   */
+  async fetchSubRelationships(theoremName, parentPage) {
+    const subLinks = await this.fetchPageLinks(theoremName, true);
+    
+    // Filter out the parent page from sub-links
+    const filteredSubLinks = subLinks.filter((link) => {
+      const excludeRegex = new RegExp(`${theoremName}|${parentPage}`, "i");
+      return !excludeRegex.test(link);
+    });
+
+    return [theoremName, ...filteredSubLinks];
+  }
+
+  /**
+   * Render the graph with relationships
+   */
+  renderGraph(relationships) {
+    // Add parent node
+    this.addNode("parent", this.queryString, CONFIG.NODE_STYLES.PRIMARY);
+
+    if (this.elements.subgraphCheckbox.checked) {
+      this.renderSubgraphMode(relationships);
+    } else {
+      this.renderSimpleMode(relationships[0]);
+    }
+
+    this.initializeRenderer();
+  }
+
+  /**
+   * Render graph in subgraph mode (with nested relationships)
+   */
+  renderSubgraphMode(relationships) {
+    relationships.forEach((branch) => {
+      if (branch.length === 0) return;
+
+      const mainNode = branch[0];
+      
+      // Add main branch node
+      this.addNode(mainNode, mainNode, CONFIG.NODE_STYLES.PRIMARY);
+      this.addLink("parent", mainNode, "red-stroke");
+
+      // Add sub-nodes
+      for (let i = 1; i < branch.length; i++) {
+        this.addNode(branch[i], branch[i], CONFIG.NODE_STYLES.SECONDARY);
+        this.addLink(mainNode, branch[i], "gray");
+      }
+    });
+  }
+
+  /**
+   * Render graph in simple mode (single level)
+   */
+  renderSimpleMode(mainLinks) {
+    mainLinks.forEach((link) => {
+      this.addNode(link, link, CONFIG.NODE_STYLES.PRIMARY);
+      this.addLink("parent", link, "red-stroke");
+    });
+  }
+
+  /**
+   * Add a node to the graph
+   */
+  addNode(id, text, style) {
+    this.graph.addNode(id, {
+      text,
+      cn: style.color,
+      strokeClass: style.strokeClass,
+    });
+  }
+
+  /**
+   * Add a link between nodes
+   */
+  addLink(fromId, toId, className) {
+    this.graph.addLink(fromId, toId, { cn: className });
+  }
+
+  /**
+   * Initialize and run the graph renderer
+   */
+  initializeRenderer() {
+    const graphics = this.createGraphics();
+    const layout = this.createLayout();
+
+    const renderer = Viva.Graph.View.renderer(this.graph, {
+      graphics,
+      container: this.elements.graphDiv,
+      layout,
+    });
+
+    renderer.run();
+  }
+
+  /**
+   * Create custom graphics for nodes and links
+   */
+  createGraphics() {
+    const graphics = Viva.Graph.View.svgGraphics();
+    const ctx = this.ctx;
+
+    graphics
+      .node((node) => {
+        const textWidth = ctx.measureText(node.data.text).width;
+        const g = Viva.Graph.svg("g");
+
+        // Add background rectangle
+        g.append("rect")
+          .attr("width", textWidth * CONFIG.NODE_WIDTH_MULTIPLIER)
+          .attr("height", CONFIG.NODE_HEIGHT)
+          .attr("class", `bbox ${node.data.strokeClass}`)
+          .attr("y", -30)
+          .attr("x", -10);
+
+        // Add text label
+        g.append("text")
+          .attr("class", `dataText ${node.data.cn}`)
+          .text(node.data.text);
+
+        return g;
+      })
+      .placeNode((nodeUI, pos) => {
+        nodeUI.attr("transform", `translate(${pos.x}, ${pos.y})`);
+      });
+
+    graphics
+      .link((link) => {
+        return Viva.Graph.svg("path")
+          .attr("stroke", "gray")
+          .attr("stroke-width", "3")
+          .attr("class", link.data.cn);
+      })
+      .placeLink((linkUI, fromPos, toPos) => {
+        const pathData = `M${fromPos.x},${fromPos.y}L${toPos.x},${toPos.y}`;
+        linkUI.attr("d", pathData);
+      });
+
+    return graphics;
+  }
+
+  /**
+   * Create force-directed layout for the graph
+   */
+  createLayout() {
+    const nodeCount = this.graph.getNodesCount();
+    const springLength =
+      nodeCount > CONFIG.GRAPH_SPRING_LENGTH.THRESHOLD
+        ? CONFIG.GRAPH_SPRING_LENGTH.EXTENDED
+        : CONFIG.GRAPH_SPRING_LENGTH.DEFAULT;
+
+    return Viva.Graph.Layout.forceDirected(this.graph, {
+      springLength,
+      ...CONFIG.GRAPH_LAYOUT,
+    });
+  }
+
+  /**
+   * Show or hide loading indicator
+   */
+  showLoading(show) {
+    this.elements.loading.innerHTML = show ? CONFIG.MESSAGES.LOADING : "";
+  }
+
+  /**
+   * Display empty state message
+   */
+  showEmptyState(message) {
+    const emptyDiv = document.createElement("div");
+    emptyDiv.className = "empty-container";
+    emptyDiv.textContent = message;
+    this.elements.graphDiv.appendChild(emptyDiv);
+  }
+
+  /**
+   * Display error message
+   */
+  showError(message) {
+    this.showLoading(false);
+    this.showEmptyState(message);
+  }
+}
+
+// Initialize app when DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+  const app = new TheoremGraphApp();
+  app.init();
 });

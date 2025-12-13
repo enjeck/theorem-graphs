@@ -1,45 +1,100 @@
+/* Reset and base styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --color-primary: #e53935;
+  --color-secondary: #666;
+  --color-background: #eee;
+  --color-surface: #fff;
+  --color-border: #333;
+  --color-text: #000;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --transition: all 0.2s ease;
+}
+
 html,
 body {
   overflow: hidden;
   width: 100%;
   height: 100%;
-  box-sizing: border-box;
-  font-family: sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   padding: 0;
   margin: 0;
+  color: var(--color-text);
 }
 
+/* Accessibility */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Search functionality */
 .search-container {
   position: relative;
+  z-index: 10;
 }
+
 #search {
-  width: 330px;
-  position: relative;
-  left:0;
-  top: 0;
-  padding: 10px;
-  background: #fff;
+  width: clamp(280px, 90vw, 330px);
+  padding: 12px;
+  background: var(--color-surface);
   margin: 20px;
-  box-shadow: 1px 1px 5px #999;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
 }
 
 .search-item {
   display: block;
   width: 100%;
-  padding: 10px;
-  border-bottom: 1px solid #333;
+  padding: 0;
+  list-style: none;
+}
+
+.search-item a {
+  display: block;
+  padding: 12px 16px;
+  color: var(--color-text);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  transition: var(--transition);
+}
+
+.search-item a:hover,
+.search-item a:focus {
+  background: rgba(0, 0, 0, 0.05);
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 #search-result {
   position: absolute;
-  max-height: 350px;
-  background: #fff;
-  overflow: scroll;
+  max-height: min(350px, 50vh);
+  background: var(--color-surface);
+  overflow-y: auto;
   top: 70px;
   left: 20px;
-  width: 350px;
-  box-shadow: 1px 1px 5px #999;
-  z-index: 3;
+  width: clamp(280px, 90vw, 350px);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  z-index: 9;
+  padding: 0;
+  margin: 0;
 }
 
 form {
@@ -47,70 +102,104 @@ form {
 }
 
 label {
-  box-sizing: border-box;
   display: flex;
-  padding: 5px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+label:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
 }
 
 input.search {
-  box-sizing: border-box;
-  padding: 5px;
+  padding: 10px 12px;
   font-size: 16px;
   width: 100%;
-  border: none;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  transition: var(--transition);
 }
 
 input.search:focus {
   outline: none;
+  border-color: var(--color-primary);
+  background: var(--color-surface);
 }
 
-span {
-  box-sizing: border-box;
-  font-size: 20pt;
-  margin-right: 5px;
-  white-space: nowrap;
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
 }
 
 #graphDiv {
-  background: #eee;
+  background: var(--color-background);
   height: 100%;
   width: 100%;
+  position: relative;
 }
 
 .top {
-  background: #eee;
-  border-bottom: 3px solid #333;
+  background: var(--color-background);
+  border-bottom: 3px solid var(--color-border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.top div {
+.top > div {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
 .gh {
   position: absolute;
-  bottom:0;
+  bottom: 0;
   right: 0;
   margin: 20px;
+  z-index: 10;
 }
+
 .gh a {
-  padding: 20px;
+  display: inline-block;
+  padding: 12px 20px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  text-decoration: none;
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.gh a:hover,
+.gh a:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  outline: 2px solid var(--color-primary);
 }
 
 #loading {
-  padding: 5px 20px;
-  font-weight: bold;
-  font-style:italic;
-
+  padding: 8px 20px;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--color-primary);
+  min-width: 150px;
 }
 
 .check {
-  padding: 0 20px; 
-  width: 180px;
+  padding: 8px 20px;
+  min-width: 180px;
 }
 
+/* SVG Graph Styling */
 svg {
   width: 100%;
   height: 100%;
@@ -118,32 +207,82 @@ svg {
 
 svg text {
   font-size: 20px;
-  font-style: normal;
-  font-weight: normal;
+  font-weight: 500;
   stroke-linecap: butt;
   stroke-linejoin: miter;
-  stroke-opacity: 1;
-  cursor:pointer;
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+
+svg text:hover {
+  font-weight: 700;
 }
 
 .bbox {
-    fill: #fff;
-    stroke-width: 3px;
-    stroke: gray;
+  fill: var(--color-surface);
+  stroke-width: 3px;
+  stroke: var(--color-secondary);
+  transition: var(--transition);
+  rx: 6;
+  ry: 6;
+}
+
+.bbox:hover {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .red-stroke {
-  stroke: red !important;
+  stroke: var(--color-primary) !important;
+}
+
+.red {
+  fill: var(--color-primary);
+}
+
+.gray {
+  fill: var(--color-secondary);
 }
 
 .empty-container {
   position: absolute;
-  left: 0;
+  left: 50%;
   top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 2;
-  width: 100%;
-  height: 30px;
+  max-width: 90%;
   text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  padding: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .top > div {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  #search {
+    margin: 10px;
+  }
+  
+  #search-result {
+    left: 10px;
+    right: 10px;
+    width: auto;
+  }
+  
+  .check {
+    width: auto;
+    padding: 8px 10px;
+  }
+  
+  .gh {
+    margin: 10px;
+  }
 }
 
 
