@@ -14,6 +14,9 @@ class TheoremGraphApp {
     this.canvas = document.createElement("canvas");
     this.ctx = this.canvas.getContext("2d");
     this.ctx.font = `${CONFIG.TEXT_SIZE}px`;
+    this.navigationHistory = [];
+    this.currentHistoryIndex = -1;
+    this.renderer = null;
   }
 
   /**
@@ -23,7 +26,14 @@ class TheoremGraphApp {
     this.cacheElements();
     this.setupSearch();
     this.setupSubgraphToggle();
+    this.setupNavigation();
     this.queryString = this.getQueryFromURL();
+    
+    // Add to history if we have a query
+    if (this.queryString) {
+      this.addToHistory(this.queryString);
+    }
+    
     await this.buildGraph();
   }
 
@@ -37,6 +47,9 @@ class TheoremGraphApp {
       loading: document.getElementById("loading"),
       subgraphCheckbox: document.getElementById("subgraph"),
       graphDiv: document.getElementById("graphDiv"),
+      breadcrumb: document.getElementById("breadcrumb"),
+      backBtn: document.getElementById("back-btn"),
+      forwardBtn: document.getElementById("forward-btn"),
     };
   }
 
@@ -74,9 +87,128 @@ class TheoremGraphApp {
   }
 
   /**
+   * Setup navigation (back/forward buttons)
+   */
+  setupNavigation() {
+    this.elements.backBtn.addEventListener("click", () => this.navigateBack());
+    this.elements.forwardBtn.addEventListener("click", () => this.navigateForward());
+    this.updateNavigationButtons();
+  }
+
+  /**
+   * Add theorem to navigation history
+   */
+  addToHistory(theoremName) {
+    // Remove any forward history if we're navigating to a new node
+    if (this.currentHistoryIndex < this.navigationHistory.length - 1) {
+      this.navigationHistory = this.navigationHistory.slice(0, this.currentHistoryIndex + 1);
+    }
+    
+    // Add new item to history
+    this.navigationHistory.push(theoremName);
+    this.currentHistoryIndex = this.navigationHistory.length - 1;
+    
+    this.updateBreadcrumb();
+    this.updateNavigationButtons();
+  }
+
+  /**
+   * Navigate to previous theorem
+   */
+  async navigateBack() {
+    if (this.currentHistoryIndex > 0) {
+      this.currentHistoryIndex--;
+      await this.navigateToHistoryIndex(this.currentHistoryIndex);
+    }
+  }
+
+  /**
+   * Navigate to next theorem
+   */
+  async navigateForward() {
+    if (this.currentHistoryIndex < this.navigationHistory.length - 1) {
+      this.currentHistoryIndex++;
+      await this.navigateToHistoryIndex(this.currentHistoryIndex);
+    }
+  }
+
+  /**
+   * Navigate to a specific history index
+   */
+  async navigateToHistoryIndex(index) {
+    this.queryString = this.navigationHistory[index];
+    this.clearGraph();
+    await this.buildGraph();
+    this.updateBreadcrumb();
+    this.updateNavigationButtons();
+    
+    // Update URL without page reload
+    const newUrl = `?query=${this.queryString.replace(/\s+/g, "+")}`;
+    window.history.pushState({}, "", newUrl);
+  }
+
+  /**
+   * Update breadcrumb display
+   */
+  updateBreadcrumb() {
+    if (this.navigationHistory.length === 0) {
+      this.elements.breadcrumb.innerHTML = "";
+      return;
+    }
+
+    const breadcrumbHTML = this.navigationHistory
+      .map((theorem, index) => {
+        const isCurrent = index === this.currentHistoryIndex;
+        const className = isCurrent ? "breadcrumb-item current" : "breadcrumb-item";
+        const onClick = !isCurrent ? `data-index="${index}"` : "";
+        return `<span class="${className}" ${onClick}>${theorem}</span>`;
+      })
+      .join('<span class="breadcrumb-separator">→</span>');
+    
+    this.elements.breadcrumb.innerHTML = breadcrumbHTML;
+    
+    // Add click handlers for breadcrumb items
+    this.elements.breadcrumb.querySelectorAll(".breadcrumb-item:not(.current)").forEach((item) => {
+      item.addEventListener("click", async (e) => {
+        const index = parseInt(e.target.dataset.index);
+        this.currentHistoryIndex = index;
+        await this.navigateToHistoryIndex(index);
+      });
+    });
+  }
+
+  /**
+   * Update navigation button states
+   */
+  updateNavigationButtons() {
+    this.elements.backBtn.disabled = this.currentHistoryIndex <= 0;
+    this.elements.forwardBtn.disabled = this.currentHistoryIndex >= this.navigationHistory.length - 1;
+  }
+
+  /**
+   * Navigate to a new theorem (from node click)
+   */
+  async navigateToTheorem(theoremName) {
+    this.addToHistory(theoremName);
+    this.queryString = theoremName;
+    this.clearGraph();
+    await this.buildGraph();
+    
+    // Update URL
+    const newUrl = `?query=${theoremName.replace(/\s+/g, "+")}`;
+    window.history.pushState({}, "", newUrl);
+  }
+
+  /**
    * Clear the graph and container
    */
   clearGraph() {
+    // Stop the renderer if it exists
+    if (this.renderer) {
+      this.renderer.dispose();
+      this.renderer = null;
+    }
+    
     // Clear the graph
     this.graph.clear();
     
@@ -299,13 +431,13 @@ class TheoremGraphApp {
     const graphics = this.createGraphics();
     const layout = this.createLayout();
 
-    const renderer = Viva.Graph.View.renderer(this.graph, {
+    this.renderer = Viva.Graph.View.renderer(this.graph, {
       graphics,
       container: this.elements.graphDiv,
       layout,
     });
 
-    renderer.run();
+    this.renderer.run();
   }
 
   /**
@@ -317,21 +449,56 @@ class TheoremGraphApp {
 
     graphics
       .node((node) => {
+        const isParent = node.id === "parent";
         const textWidth = ctx.measureText(node.data.text).width;
         const g = Viva.Graph.svg("g");
 
+        // Make parent node larger and more prominent
+        const widthMultiplier = isParent ? CONFIG.NODE_WIDTH_MULTIPLIER * 1.3 : CONFIG.NODE_WIDTH_MULTIPLIER;
+        const height = isParent ? CONFIG.NODE_HEIGHT * 1.4 : CONFIG.NODE_HEIGHT;
+        const yOffset = isParent ? -40 : -30;
+        
+        // Add glow effect for parent node
+        if (isParent) {
+          g.append("rect")
+            .attr("width", textWidth * widthMultiplier + 10)
+            .attr("height", height + 10)
+            .attr("class", "bbox-glow")
+            .attr("y", yOffset - 5)
+            .attr("x", -15)
+            .attr("rx", 8)
+            .attr("ry", 8);
+        }
+
         // Add background rectangle
-        g.append("rect")
-          .attr("width", textWidth * CONFIG.NODE_WIDTH_MULTIPLIER)
-          .attr("height", CONFIG.NODE_HEIGHT)
-          .attr("class", `bbox ${node.data.strokeClass}`)
-          .attr("y", -30)
+        const rect = g.append("rect")
+          .attr("width", textWidth * widthMultiplier)
+          .attr("height", height)
+          .attr("class", `bbox ${node.data.strokeClass} ${isParent ? 'parent-node' : ''}`)
+          .attr("y", yOffset)
           .attr("x", -10);
 
-        // Add text label
-        g.append("text")
-          .attr("class", `dataText ${node.data.cn}`)
+        // Add text label with larger font for parent
+        const text = g.append("text")
+          .attr("class", `dataText ${node.data.cn} ${isParent ? 'parent-text' : ''}`)
           .text(node.data.text);
+
+        // Add click handler for navigation
+        // Skip the parent node (it's already the current focus)
+        if (node.id !== "parent") {
+          g.addEventListener("click", async () => {
+            await this.navigateToTheorem(node.data.text);
+          });
+          
+          // Add visual feedback on hover
+          g.addEventListener("mouseenter", () => {
+            rect.attr("class", `bbox ${node.data.strokeClass} hovered`);
+          });
+          
+          g.addEventListener("mouseleave", () => {
+            rect.attr("class", `bbox ${node.data.strokeClass}`);
+          });
+        }
 
         return g;
       })
