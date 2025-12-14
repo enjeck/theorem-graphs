@@ -17,38 +17,29 @@ class TheoremGraphApp {
     this.navigationHistory = [];
     this.currentHistoryIndex = -1;
     this.renderer = null;
-    
-    // Cache for API responses
+
     this.cache = {
-      wikiLinks: new Map(), // Stores fetched Wikipedia links
-      relationships: new Map(), // Stores computed relationships
+      wikiLinks: new Map(),
+      relationships: new Map(),
     };
-    
-    // Load cache from localStorage
+
     this.loadCacheFromStorage();
   }
 
-  /**
-   * Initialize the application
-   */
   async init() {
     this.cacheElements();
     this.setupSearch();
     this.setupSubgraphToggle();
     this.setupNavigation();
     this.queryString = this.getQueryFromURL();
-    
-    // Add to history if we have a query
+
     if (this.queryString) {
       this.addToHistory(this.queryString);
     }
-    
+
     await this.buildGraph();
   }
 
-  /**
-   * Load cache from localStorage
-   */
   loadCacheFromStorage() {
     try {
       const stored = localStorage.getItem('theoremGraphCache');
@@ -65,9 +56,6 @@ class TheoremGraphApp {
     }
   }
 
-  /**
-   * Save cache to localStorage
-   */
   saveCacheToStorage() {
     try {
       const toStore = {
@@ -82,28 +70,19 @@ class TheoremGraphApp {
     }
   }
 
-  /**
-   * Update cache info display
-   */
   updateCacheInfo() {
     if (this.elements.cacheInfo) {
       const count = this.cache.wikiLinks.size;
-      this.elements.cacheInfo.innerHTML = count > 0 
-        ? `📦 ${count} cached` 
+      this.elements.cacheInfo.innerHTML = count > 0
+        ? `📦 ${count} cached`
         : '';
     }
   }
 
-  /**
-   * Get cache key for a theorem
-   */
   getCacheKey(pageName, includeExtended = false) {
     return `${pageName}:${includeExtended}`;
   }
 
-  /**
-   * Clear cache (can be called from console: app.clearCache())
-   */
   clearCache() {
     this.cache.wikiLinks.clear();
     this.cache.relationships.clear();
@@ -111,9 +90,6 @@ class TheoremGraphApp {
     console.log('Cache cleared');
   }
 
-  /**
-   * Cache DOM elements for reuse
-   */
   cacheElements() {
     this.elements = {
       search: document.querySelector(".search"),
@@ -128,68 +104,46 @@ class TheoremGraphApp {
     };
   }
 
-  /**
-   * Get query string from URL parameters
-   */
   getQueryFromURL() {
     const params = new URLSearchParams(window.location.search);
     return params.get("query");
   }
 
-  /**
-   * Setup search functionality with Fuse.js
-   */
   setupSearch() {
-    // Initialize Fuse for fuzzy search
     this.fuse = new Fuse(list, CONFIG.FUSE_OPTIONS);
-    
+
     // Bind search event
     this.elements.search.addEventListener("input", () => this.performSearch());
     this.performSearch();
   }
 
-  /**
-   * Setup subgraph checkbox toggle
-   */
   setupSubgraphToggle() {
     this.elements.subgraphCheckbox.addEventListener("change", async () => {
       // Clear the existing graph
       this.clearGraph();
-      
+
       // Rebuild with new subgraph setting
       await this.buildGraph();
     });
   }
 
-  /**
-   * Setup navigation (back/forward buttons)
-   */
   setupNavigation() {
     this.elements.backBtn.addEventListener("click", () => this.navigateBack());
     this.elements.forwardBtn.addEventListener("click", () => this.navigateForward());
     this.updateNavigationButtons();
   }
 
-  /**
-   * Add theorem to navigation history
-   */
   addToHistory(theoremName) {
-    // Remove any forward history if we're navigating to a new node
     if (this.currentHistoryIndex < this.navigationHistory.length - 1) {
       this.navigationHistory = this.navigationHistory.slice(0, this.currentHistoryIndex + 1);
     }
-    
-    // Add new item to history
     this.navigationHistory.push(theoremName);
     this.currentHistoryIndex = this.navigationHistory.length - 1;
-    
+
     this.updateBreadcrumb();
     this.updateNavigationButtons();
   }
 
-  /**
-   * Navigate to previous theorem
-   */
   async navigateBack() {
     if (this.currentHistoryIndex > 0) {
       this.currentHistoryIndex--;
@@ -197,9 +151,6 @@ class TheoremGraphApp {
     }
   }
 
-  /**
-   * Navigate to next theorem
-   */
   async navigateForward() {
     if (this.currentHistoryIndex < this.navigationHistory.length - 1) {
       this.currentHistoryIndex++;
@@ -207,24 +158,18 @@ class TheoremGraphApp {
     }
   }
 
-  /**
-   * Navigate to a specific history index
-   */
   async navigateToHistoryIndex(index) {
     this.queryString = this.navigationHistory[index];
     this.clearGraph();
     await this.buildGraph();
     this.updateBreadcrumb();
     this.updateNavigationButtons();
-    
+
     // Update URL without page reload
     const newUrl = `?query=${this.queryString.replace(/\s+/g, "+")}`;
     window.history.pushState({}, "", newUrl);
   }
 
-  /**
-   * Update breadcrumb display
-   */
   updateBreadcrumb() {
     if (this.navigationHistory.length === 0) {
       this.elements.breadcrumb.innerHTML = "";
@@ -239,9 +184,9 @@ class TheoremGraphApp {
         return `<span class="${className}" ${onClick}>${theorem}</span>`;
       })
       .join('<span class="breadcrumb-separator">→</span>');
-    
+
     this.elements.breadcrumb.innerHTML = breadcrumbHTML;
-    
+
     // Add click handlers for breadcrumb items
     this.elements.breadcrumb.querySelectorAll(".breadcrumb-item:not(.current)").forEach((item) => {
       item.addEventListener("click", async (e) => {
@@ -252,55 +197,37 @@ class TheoremGraphApp {
     });
   }
 
-  /**
-   * Update navigation button states
-   */
   updateNavigationButtons() {
     this.elements.backBtn.disabled = this.currentHistoryIndex <= 0;
     this.elements.forwardBtn.disabled = this.currentHistoryIndex >= this.navigationHistory.length - 1;
   }
 
-  /**
-   * Navigate to a new theorem (from node click)
-   */
   async navigateToTheorem(theoremName) {
     this.addToHistory(theoremName);
     this.queryString = theoremName;
     this.clearGraph();
     await this.buildGraph();
-    
+
     // Update URL
     const newUrl = `?query=${theoremName.replace(/\s+/g, "+")}`;
     window.history.pushState({}, "", newUrl);
   }
 
-  /**
-   * Clear the graph and container
-   */
   clearGraph() {
-    // Stop the renderer if it exists
     if (this.renderer) {
       this.renderer.dispose();
       this.renderer = null;
     }
-    
-    // Clear the graph
+
     this.graph.clear();
-    
-    // Clear the container
     this.elements.graphDiv.innerHTML = "";
-    
-    // Recreate the graph instance
     this.graph = Viva.Graph.graph();
   }
 
-  /**
-   * Perform search and display results
-   */
   performSearch() {
     const searchValue = this.elements.search.value;
     const results = this.fuse.search(searchValue);
-    
+
     const resultHTML = results
       .map((index) => {
         const theorem = list[index];
@@ -310,13 +237,10 @@ class TheoremGraphApp {
         </li>`;
       })
       .join("");
-    
+
     this.elements.result.innerHTML = resultHTML;
   }
 
-  /**
-   * Build the theorem relationship graph
-   */
   async buildGraph() {
     try {
       await this.fetchAndRenderGraph();
@@ -326,9 +250,6 @@ class TheoremGraphApp {
     }
   }
 
-  /**
-   * Fetch Wikipedia data and render the graph
-   */
   async fetchAndRenderGraph() {
     if (!this.queryString) {
       this.showEmptyState(CONFIG.MESSAGES.EMPTY_SEARCH);
@@ -339,7 +260,7 @@ class TheoremGraphApp {
 
     try {
       const relationships = await this.fetchWikiRelationships(this.queryString);
-      
+
       if (relationships.length === 0) {
         this.showEmptyState(CONFIG.MESSAGES.NO_RESULTS);
         return;
@@ -351,12 +272,9 @@ class TheoremGraphApp {
     }
   }
 
-  /**
-   * Fetch theorem relationships from Wikipedia API
-   */
   async fetchWikiRelationships(pageName) {
     const mainLinks = await this.fetchPageLinks(pageName);
-    
+
     if (!this.elements.subgraphCheckbox.checked) {
       return [mainLinks];
     }
@@ -369,11 +287,7 @@ class TheoremGraphApp {
     return subRelationships;
   }
 
-  /**
-   * Fetch links from a Wikipedia page
-   */
   async fetchPageLinks(pageName, includeExtended = false) {
-    // Check cache first
     const cacheKey = this.getCacheKey(pageName, includeExtended);
     if (this.cache.wikiLinks.has(cacheKey)) {
       console.log(`Cache hit: ${pageName}`);
@@ -382,25 +296,25 @@ class TheoremGraphApp {
 
     console.log(`Fetching: ${pageName}`);
     const url = `${CONFIG.WIKI_API_BASE}?${CONFIG.WIKI_API_PARAMS}&page=${pageName}`;
-    
+
     try {
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (!data.parse || !data.parse.links) {
         return [];
       }
 
       const filteredLinks = this.filterLinks(data.parse.links, pageName, includeExtended);
-      
+
       // Store in cache
       this.cache.wikiLinks.set(cacheKey, filteredLinks);
       this.saveCacheToStorage();
-      
+
       return filteredLinks;
     } catch (error) {
       console.error(`Error fetching links for ${pageName}:`, error);
@@ -408,18 +322,15 @@ class TheoremGraphApp {
     }
   }
 
-  /**
-   * Filter Wikipedia links based on relevance
-   */
   filterLinks(links, excludePage, includeExtended = false) {
-    const matchRegex = includeExtended 
-      ? CONFIG.REGEX.EXTENDED_MATCH 
+    const matchRegex = includeExtended
+      ? CONFIG.REGEX.EXTENDED_MATCH
       : CONFIG.REGEX.THEOREM_MATCH;
-    
-    const excludeRegex = includeExtended 
-      ? CONFIG.REGEX.EXCLUDE_EXTENDED 
+
+    const excludeRegex = includeExtended
+      ? CONFIG.REGEX.EXCLUDE_EXTENDED
       : CONFIG.REGEX.EXCLUDE_COMMON;
-    
+
     const excludePageRegex = new RegExp(excludePage, "i");
 
     return links
@@ -433,12 +344,9 @@ class TheoremGraphApp {
       });
   }
 
-  /**
-   * Fetch sub-relationships for a given theorem
-   */
   async fetchSubRelationships(theoremName, parentPage) {
     const subLinks = await this.fetchPageLinks(theoremName, true);
-    
+
     // Filter out the parent page from sub-links
     const filteredSubLinks = subLinks.filter((link) => {
       const excludeRegex = new RegExp(`${theoremName}|${parentPage}`, "i");
@@ -448,11 +356,7 @@ class TheoremGraphApp {
     return [theoremName, ...filteredSubLinks];
   }
 
-  /**
-   * Render the graph with relationships
-   */
   renderGraph(relationships) {
-    // Add parent node
     this.addNode("parent", this.queryString, CONFIG.NODE_STYLES.PRIMARY);
 
     if (this.elements.subgraphCheckbox.checked) {
@@ -464,15 +368,12 @@ class TheoremGraphApp {
     this.initializeRenderer();
   }
 
-  /**
-   * Render graph in subgraph mode (with nested relationships)
-   */
   renderSubgraphMode(relationships) {
     relationships.forEach((branch) => {
       if (branch.length === 0) return;
 
       const mainNode = branch[0];
-      
+
       // Add main branch node
       this.addNode(mainNode, mainNode, CONFIG.NODE_STYLES.PRIMARY);
       this.addLink("parent", mainNode, "red-stroke");
@@ -485,9 +386,6 @@ class TheoremGraphApp {
     });
   }
 
-  /**
-   * Render graph in simple mode (single level)
-   */
   renderSimpleMode(mainLinks) {
     mainLinks.forEach((link) => {
       this.addNode(link, link, CONFIG.NODE_STYLES.PRIMARY);
@@ -495,9 +393,6 @@ class TheoremGraphApp {
     });
   }
 
-  /**
-   * Add a node to the graph
-   */
   addNode(id, text, style) {
     this.graph.addNode(id, {
       text,
@@ -506,16 +401,10 @@ class TheoremGraphApp {
     });
   }
 
-  /**
-   * Add a link between nodes
-   */
   addLink(fromId, toId, className) {
     this.graph.addLink(fromId, toId, { cn: className });
   }
 
-  /**
-   * Initialize and run the graph renderer
-   */
   initializeRenderer() {
     const graphics = this.createGraphics();
     const layout = this.createLayout();
@@ -529,9 +418,6 @@ class TheoremGraphApp {
     this.renderer.run();
   }
 
-  /**
-   * Create custom graphics for nodes and links
-   */
   createGraphics() {
     const graphics = Viva.Graph.View.svgGraphics();
     const ctx = this.ctx;
@@ -542,12 +428,9 @@ class TheoremGraphApp {
         const textWidth = ctx.measureText(node.data.text).width;
         const g = Viva.Graph.svg("g");
 
-        // Make parent node larger and more prominent
         const widthMultiplier = isParent ? CONFIG.NODE_WIDTH_MULTIPLIER * 1.3 : CONFIG.NODE_WIDTH_MULTIPLIER;
         const height = isParent ? CONFIG.NODE_HEIGHT * 1.4 : CONFIG.NODE_HEIGHT;
         const yOffset = isParent ? -40 : -30;
-        
-        // Add glow effect for parent node
         if (isParent) {
           g.append("rect")
             .attr("width", textWidth * widthMultiplier + 10)
@@ -559,7 +442,6 @@ class TheoremGraphApp {
             .attr("ry", 8);
         }
 
-        // Add background rectangle
         const rect = g.append("rect")
           .attr("width", textWidth * widthMultiplier)
           .attr("height", height)
@@ -567,35 +449,32 @@ class TheoremGraphApp {
           .attr("y", yOffset)
           .attr("x", -10);
 
-        // Add text label with larger font for parent
         const text = g.append("text")
           .attr("class", `dataText ${node.data.cn} ${isParent ? 'parent-text' : ''}`)
           .text(node.data.text);
-
-        // Add drag/click detection for navigation
         // Skip the parent node (it's already the current focus)
         if (node.id !== "parent") {
           let mouseDownPos = null;
           let isDragging = false;
-          
+
           g.addEventListener("mousedown", (e) => {
             mouseDownPos = { x: e.clientX, y: e.clientY };
             isDragging = false;
           });
-          
+
           g.addEventListener("mousemove", (e) => {
             if (mouseDownPos) {
               const dx = e.clientX - mouseDownPos.x;
               const dy = e.clientY - mouseDownPos.y;
               const distance = Math.sqrt(dx * dx + dy * dy);
-              
+
               // If moved more than 5 pixels, it's a drag
               if (distance > 5) {
                 isDragging = true;
               }
             }
           });
-          
+
           g.addEventListener("mouseup", async (e) => {
             // Only navigate if it was a click (not a drag)
             if (mouseDownPos && !isDragging) {
@@ -604,13 +483,13 @@ class TheoremGraphApp {
             mouseDownPos = null;
             isDragging = false;
           });
-          
+
           // Add visual feedback on hover
           g.addEventListener("mouseenter", () => {
             rect.attr("class", `bbox ${node.data.strokeClass} hovered`);
             g.style.cursor = "pointer";
           });
-          
+
           g.addEventListener("mouseleave", () => {
             rect.attr("class", `bbox ${node.data.strokeClass}`);
             g.style.cursor = "default";
@@ -638,9 +517,6 @@ class TheoremGraphApp {
     return graphics;
   }
 
-  /**
-   * Create force-directed layout for the graph
-   */
   createLayout() {
     const nodeCount = this.graph.getNodesCount();
     const springLength =
@@ -654,16 +530,10 @@ class TheoremGraphApp {
     });
   }
 
-  /**
-   * Show or hide loading indicator
-   */
   showLoading(show) {
     this.elements.loading.innerHTML = show ? CONFIG.MESSAGES.LOADING : "";
   }
 
-  /**
-   * Display empty state message
-   */
   showEmptyState(message) {
     const emptyDiv = document.createElement("div");
     emptyDiv.className = "empty-container";
@@ -671,21 +541,15 @@ class TheoremGraphApp {
     this.elements.graphDiv.appendChild(emptyDiv);
   }
 
-  /**
-   * Display error message
-   */
   showError(message) {
     this.showLoading(false);
     this.showEmptyState(message);
   }
 }
 
-// Initialize app when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
   const app = new TheoremGraphApp();
   app.init();
-  
-  // Expose app globally for console access (e.g., app.clearCache())
   window.theoremApp = app;
   console.log('Theorem Graph App loaded. Use theoremApp.clearCache() to clear cache.');
 });
